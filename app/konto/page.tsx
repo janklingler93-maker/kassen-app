@@ -20,6 +20,7 @@ type Transaction = {
 export default function KontoPage() {
   const [user, setUser] = useState<User | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [newPassword, setNewPassword] = useState("");
 
   useEffect(() => {
     const savedUser = JSON.parse(localStorage.getItem("user") || "null");
@@ -51,6 +52,28 @@ export default function KontoPage() {
       .order("created_at", { ascending: false });
 
     setTransactions(data || []);
+  }
+
+  async function changeOwnPassword() {
+    if (!user) return;
+
+    if (!newPassword.trim()) {
+      alert("Bitte neues Passwort eingeben");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("users")
+      .update({ password: newPassword.trim() })
+      .eq("id", user.id);
+
+    if (error) {
+      alert("Passwort konnte nicht geändert werden: " + error.message);
+      return;
+    }
+
+    setNewPassword("");
+    alert("Passwort wurde geändert");
   }
 
   function logout() {
@@ -116,6 +139,27 @@ export default function KontoPage() {
               </p>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="text-2xl font-bold mb-4">Passwort ändern</h2>
+
+        <div className="bg-gray-900 p-4 rounded-2xl">
+          <input
+            type="password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            placeholder="Neues Passwort"
+            className="w-full bg-gray-800 border border-gray-700 p-4 rounded-2xl mb-3"
+          />
+
+          <button
+            onClick={changeOwnPassword}
+            className="w-full bg-blue-600 p-4 rounded-2xl font-bold"
+          >
+            Passwort speichern
+          </button>
         </div>
       </section>
 
