@@ -17,6 +17,7 @@ type Drink = {
   price: number;
   image_url: string | null;
   active: boolean;
+  stock: number;
 };
 
 type View =
@@ -87,20 +88,62 @@ export default function AdminPage() {
     if (data) setSelectedUser(data);
   }
 
-  async function changeBalance(userId: string, value: number) {
-    const { error } = await supabase.rpc("increment_balance", {
-      user_id: userId,
-      amount: value,
-    });
+async function changeBalance(userId: string, value: number) {
+  const ok = confirm(
+    `Buchung bestätigen?\n\nBetrag: ${value.toFixed(2)} €`
+  );
 
-    if (error) {
-      alert("Buchung fehlgeschlagen: " + error.message);
-      return;
-    }
+  if (!ok) return;
 
-    await refreshSelectedUser(userId);
-    await loadData();
+  const { error } = await supabase.rpc("change_balance_with_history", {
+    p_user_id: userId,
+    p_amount: value,
+    p_description: value > 0 ? "Geld eingezahlt" : "Geld abgezogen",
+  });
+
+  if (error) {
+    alert("Buchung fehlgeschlagen: " + error.message);
+    return;
   }
+
+  await refreshSelectedUser(userId);
+  await loadData();
+}
+
+async function bookDrink(userId: string, drink: Drink) {
+  const ok = confirm(
+    `${drink.name} für ${Number(drink.price).toFixed(2)} € buchen?`
+  );
+
+  if (!ok) return;
+
+  const { error } = await supabase.rpc("book_drink", {
+    p_user_id: userId,
+    p_drink_id: drink.id,
+  });
+
+  if (error) {
+    alert("Buchung fehlgeschlagen: " + error.message);
+    return;
+  }
+
+  await refreshSelectedUser(userId);
+  await loadData();
+}
+
+async function changeStock(drinkId: string, amount: number) {
+  const { error } = await supabase.rpc("update_drink_stock", {
+    p_drink_id: drinkId,
+    p_amount: amount,
+  });
+
+  if (error) {
+    alert("Bestand konnte nicht geändert werden: " + error.message);
+    return;
+  }
+
+  await loadData();
+}
 
   async function createDrink() {
     if (!drinkName.trim() || !drinkPrice.trim()) {
@@ -130,11 +173,12 @@ export default function AdminPage() {
     }
 
     const { error } = await supabase.from("drinks").insert({
-      name: drinkName.trim(),
-      price: Number(drinkPrice),
-      image_url: imageUrl,
-      active: true,
-    });
+  name: drinkName.trim(),
+  price: Number(drinkPrice),
+  image_url: imageUrl,
+  active: true,
+  stock: 0,
+});
 
     if (error) {
       alert("Getränk konnte nicht erstellt werden: " + error.message);
@@ -347,7 +391,7 @@ export default function AdminPage() {
             {drinks.map((d) => (
               <button
                 key={d.id}
-                onClick={() => changeBalance(selectedUser.id, -Number(d.price))}
+                onClick={() => bookDrink(selectedUser.id, d)}
                 className="bg-blue-600 active:scale-95 p-4 rounded-2xl flex flex-col items-center gap-2 font-bold"
               >
                 {d.image_url && (
@@ -433,6 +477,9 @@ export default function AdminPage() {
 
           <BigButton onClick={() => setView("manageUsers")}>
             👥 Benutzer verwalten
+          </BigButton>
+          <BigButton onClick={() => setView("inventory")}>
+            📦 Inventur
           </BigButton>
         </section>
       )}
@@ -643,6 +690,55 @@ export default function AdminPage() {
           </div>
         </section>
       )}
+{view === "inventory" && (
+  <section>
+    <h2 className="text-2xl font-bold mb-4">Inventur</h2>
+
+    <div className="space-y-3">
+      {drinks.map((d) => (
+        <div key={d.id} className="bg-gray-900 p-4 rounded-2xl">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3">
+              {d.image_url && (
+                <img
+                  src={d.image_url}
+                  alt={d.name}
+                  className="w-14 h-14 object-cover rounded-xl bg-white"
+                />
+              )}
+
+              <div>
+                <p className="font-bold text-xl">{d.name}</p>
+                <p className={Number(d.stock) <= 5 ? "text-red-400" : "text-green-400"}>
+                  Bestand: {d.stock}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-4 gap-2">
+            <button onClick={() => changeStock(d.id, -1)} className="bg-red-600 p-3 rounded-xl font-bold">
+              -1
+            </button>
+
+            <button onClick={() => changeStock(d.id, 1)} className="bg-green-600 p-3 rounded-xl font-bold">
+              +1
+            </button>
+
+            <button onClick={() => changeStock(d.id, 10)} className="bg-green-700 p-3 rounded-xl font-bold">
+              +10
+            </button>
+
+            <button onClick={() => changeStock(d.id, 20)} className="bg-blue-600 p-3 rounded-xl font-bold">
+              +20
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  </section>
+)}
+
     </main>
   );
 }
