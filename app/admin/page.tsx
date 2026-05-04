@@ -28,7 +28,8 @@ type View =
   | "money"
   | "manage"
   | "manageDrinks"
-  | "manageUsers";
+  | "manageUsers"
+  | "inventory";
 
 export default function AdminPage() {
   const [view, setView] = useState<View>("home");
@@ -478,9 +479,9 @@ async function changeStock(drinkId: string, amount: number) {
           <BigButton onClick={() => setView("manageUsers")}>
             👥 Benutzer verwalten
           </BigButton>
-          <BigButton onClick={() => setView("inventory")}>
-            📦 Inventur
-          </BigButton>
+<BigButton onClick={() => setView("inventory")}>
+  📦 Inventur
+</BigButton>
         </section>
       )}
 
